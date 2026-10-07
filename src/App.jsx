@@ -1,5 +1,5 @@
 // src/App.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Routes, Route, Navigate, Link, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 import AdminPage from "./AdminPage.jsx";
@@ -183,8 +183,7 @@ function CoordinatorRefereesPage() {
   const [addRole, setAddRole] = useState("referee");
   const [addMsg, setAddMsg] = useState("");
 
-  const canSetHead = false; // alleen admin later (of aparte flow)
-  const roleOptions = canSetHead ? ["referee", "coordinator", "head_coordinator"] : ["referee", "coordinator"];
+  const roleOptions = ["referee", "coordinator", "head_coordinator"];
 
   async function load() {
     setLoading(true);
@@ -193,7 +192,7 @@ function CoordinatorRefereesPage() {
     // memberships in dit org + join naar profiles
     const { data, error } = await supabase
       .from("memberships")
-      .select("user_id, role, profiles:user_id (full_name, email)")
+      .select("user_id, role, profiles (full_name, email)")
       .eq("org_id", orgId)
       .order("role", { ascending: false });
 
@@ -215,22 +214,26 @@ function CoordinatorRefereesPage() {
 
   async function changeRole(userId, newRole) {
     setErr("");
-    // Beveiliging extra: coördinator mag niet head_coordinator zetten
+
     if (newRole === "head_coordinator") {
       setErr("Hoofdcoördinator instellen kan alleen via admin.");
       return;
     }
 
-    const { error } = await supabase
-      .from("memberships")
-      .update({ role: newRole })
-      .eq("org_id", orgId)
-      .eq("user_id", userId);
+    const { data, error } = await supabase.functions.invoke("manage-member", {
+      body: {
+        action: "change_role",
+        orgId,
+        userId,
+        role: newRole,
+      },
+    });
 
-    if (error) {
-      setErr(error.message);
+    if (error || !data?.ok) {
+      setErr(error?.message || data?.error || "Rol wijzigen mislukt.");
       return;
     }
+
     await load();
   }
 
@@ -238,16 +241,19 @@ function CoordinatorRefereesPage() {
     setErr("");
     if (!confirm("Weet je zeker dat je deze persoon uit de vereniging wilt verwijderen?")) return;
 
-    const { error } = await supabase
-      .from("memberships")
-      .delete()
-      .eq("org_id", orgId)
-      .eq("user_id", userId);
+    const { data, error } = await supabase.functions.invoke("manage-member", {
+      body: {
+        action: "remove",
+        orgId,
+        userId,
+      },
+    });
 
-    if (error) {
-      setErr(error.message);
+    if (error || !data?.ok) {
+      setErr(error?.message || data?.error || "Verwijderen mislukt.");
       return;
     }
+
     await load();
   }
 
@@ -262,30 +268,17 @@ function CoordinatorRefereesPage() {
       return;
     }
 
-    // 1) zoek profile op email
-    const { data: prof, error: profErr } = await supabase
-      .from("profiles")
-      .select("user_id, email, full_name")
-      .eq("email", email)
-      .maybeSingle();
+    const { data, error } = await supabase.functions.invoke("manage-member", {
+      body: {
+        action: "add_by_email",
+        orgId,
+        email,
+        role: addRole,
+      },
+    });
 
-    if (profErr) {
-      setErr(profErr.message);
-      return;
-    }
-
-    if (!prof?.user_id) {
-      setAddMsg("Dit e-mailadres heeft nog geen IRMA-account. (Uitnodigen doen we in de volgende stap.)");
-      return;
-    }
-
-    // 2) voeg membership toe
-    const { error: insErr } = await supabase
-      .from("memberships")
-      .insert([{ org_id: orgId, user_id: prof.user_id, role: addRole }]);
-
-    if (insErr) {
-      setErr(insErr.message);
+    if (error || !data?.ok) {
+      setErr(error?.message || data?.error || "Persoon toevoegen mislukt.");
       return;
     }
 
@@ -366,17 +359,20 @@ function CoordinatorRefereesPage() {
                       value={r.role}
                       onChange={(e) => changeRole(r.user_id, e.target.value)}
                       style={{ padding: 6 }}
-                      disabled={!isCoordinator}
+                      disabled={!isCoordinator || r.role === "head_coordinator"}
                     >
                       {roleOptions.map((opt) => (
-                        <option key={opt} value={opt}>
+                        <option key={opt} value={opt} disabled={opt === "head_coordinator"}>
                           {opt === "referee" ? "Scheidsrechter" : opt === "coordinator" ? "Coördinator" : "Hoofdcoördinator"}
                         </option>
                       ))}
                     </select>
                   </td>
                   <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>
-                    <button onClick={() => removeMember(r.user_id)} disabled={!isCoordinator}>
+                    <button
+                      onClick={() => removeMember(r.user_id)}
+                      disabled={!isCoordinator || r.role === "head_coordinator"}
+                    >
                       Verwijderen
                     </button>
                   </td>
