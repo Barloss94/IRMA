@@ -1,8 +1,10 @@
 // src/App.jsx
 import { useEffect, useState } from "react";
-import { Routes, Route, Navigate, Link, useNavigate, useParams } from "react-router-dom";
+import { Routes, Route, Navigate, Link, NavLink, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 import AdminPage from "./AdminPage.jsx";
+
+const roleLabel = (role) => ({ referee: "Scheidsrechter", coordinator: "Coördinator", head_coordinator: "Hoofdcoördinator" }[role] || role);
 
 /* ---------------------------
    Auth helpers
@@ -42,21 +44,21 @@ function LoginPage() {
   };
 
   return (
-    <div style={{ maxWidth: 420, margin: "40px auto", fontFamily: "system-ui" }}>
-      <h2>IRMA Login</h2>
+    <div className="auth-page"><div className="auth-card">
+      <div className="brand-mark">I</div><p className="eyebrow">Integrated Referee Management App</p><h1>Welkom bij IRMA</h1><p className="muted">Log in om naar jouw vereniging te gaan.</p>
       <form onSubmit={handleLogin}>
         <div style={{ marginBottom: 10 }}>
-          <label>Email</label>
-          <input value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: "100%" }} autoComplete="email" />
+          <label htmlFor="login-email">E-mailadres</label>
+          <input id="login-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: "100%" }} autoComplete="email" />
         </div>
         <div style={{ marginBottom: 10 }}>
-          <label>Wachtwoord</label>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ width: "100%" }} autoComplete="current-password" />
+          <label htmlFor="login-password">Wachtwoord</label>
+          <input id="login-password" required type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ width: "100%" }} autoComplete="current-password" />
         </div>
         {err && <div style={{ color: "crimson", marginBottom: 10 }}>{err}</div>}
         <button type="submit">Inloggen</button>
       </form>
-    </div>
+    </div></div>
   );
 }
 
@@ -113,17 +115,17 @@ function SelectOrgPage({ session, isAdmin }) {
   };
 
   return (
-    <div style={{ maxWidth: 720, margin: "40px auto", fontFamily: "system-ui" }}>
-      <h2>Kies vereniging</h2>
+    <div className="selection-page"><div className="brand-mark">I</div><p className="eyebrow">IRMA · Jouw omgeving</p>
+      <h1>Kies je vereniging</h1><p className="muted">Open de vereniging waarvoor je aan de slag wilt.</p>{isAdmin && <Link className="text-link" to="/admin">Naar platformbeheer →</Link>}
       {loading ? (
         <p>Bezig met laden…</p>
       ) : orgs.length === 0 ? (
         <p>Geen verenigingen gekoppeld aan dit account (en geen admin toegang).</p>
       ) : (
-        <ul>
+        <ul className="org-list">
           {orgs.map((o) => (
             <li key={o.id} style={{ marginBottom: 8 }}>
-              <button onClick={() => pick(o)}>
+              <button className="org-option" onClick={() => pick(o)}>
                 {o.name}{" "}
                 <span style={{ opacity: 0.7 }}>
                   ({o.role === "head_coordinator" ? "hoofdcoördinator" : o.role === "coordinator" ? "coördinator" : "scheidsrechter"})
@@ -144,31 +146,27 @@ function SelectOrgPage({ session, isAdmin }) {
 function DashboardPage() {
   const { orgId } = useParams();
   const role = localStorage.getItem("active_org_role") || "referee";
+  const isCoordinator = role === "coordinator" || role === "head_coordinator";
   return (
     <div>
-      <h2>Dashboard</h2>
-      <div>Org: {orgId}</div>
-      <div>Rol: {role}</div>
+      <p className="eyebrow">Jouw vereniging</p><h1>Dashboard</h1>
+      <p className="muted">Welkom in jouw IRMA-omgeving.</p>
+      <section className="welcome-panel"><div><span className="badge">{roleLabel(role)}</span><h2>Alles voor je vereniging op één plek</h2><p>Ga naar wedstrijden of open het beheer van je vereniging.</p></div><span className="welcome-monogram" aria-hidden="true">I</span></section>
+      <div className="dashboard-grid">
+        <Link className="module-card" to={`/org/${orgId}/matches`}><span className="module-icon" aria-hidden="true">▦</span><h2>Wedstrijden</h2><p>Open de wedstrijdmodule van je vereniging.</p><span className="text-link">Bekijk wedstrijden →</span></Link>
+        {isCoordinator && <Link className="module-card" to={`/org/${orgId}/coordinator/referees`}><span className="module-icon" aria-hidden="true">♧</span><h2>Scheidsrechters</h2><p>Beheer gekoppelde personen en hun rollen.</p><span className="text-link">Open personenbeheer →</span></Link>}
+      </div>
     </div>
   );
 }
 
 function MatchesPage() {
-  const { orgId } = useParams();
-  return <div>Wedstrijdenlijst (org: {orgId})</div>;
+  return <div><p className="eyebrow">Jouw vereniging</p><h1>Wedstrijden</h1><p className="muted">De wedstrijdmodule van je vereniging.</p><section className="empty-state"><span className="module-icon" aria-hidden="true">▦</span><h2>Wedstrijdmodule in ontwikkeling</h2><p>In deze versie is er nog geen wedstrijdenlijst beschikbaar.</p></section></div>;
 }
 
 function CoordinatorHomePage() {
   const { orgId } = useParams();
-  return (
-    <div>
-      <h2>Coördinator</h2>
-      <p>Kies een onderdeel:</p>
-      <ul>
-        <li><Link to={`/org/${orgId}/coordinator/referees`}>Scheidsrechters beheren</Link></li>
-      </ul>
-    </div>
-  );
+  return <div><p className="eyebrow">Verenigingsbeheer</p><h1>Coördinator</h1><p className="muted">Beheer de personen binnen je vereniging.</p><div className="dashboard-grid"><Link className="module-card" to={`/org/${orgId}/coordinator/referees`}><span className="module-icon" aria-hidden="true">♧</span><h2>Scheidsrechters beheren</h2><p>Voeg bestaande accounts toe en beheer hun rollen.</p><span className="text-link">Open personenbeheer →</span></Link></div></div>;
 }
 
 function CoordinatorRefereesPage() {
@@ -291,9 +289,9 @@ function CoordinatorRefereesPage() {
   const isCoordinator = activeRole === "coordinator" || activeRole === "head_coordinator";
 
   return (
-    <div style={{ maxWidth: 900 }}>
-      <h2>Scheidsrechters beheren</h2>
-      <div style={{ opacity: 0.75, marginBottom: 12 }}>Org: {orgId}</div>
+    <div className="members-page">
+      <p className="eyebrow">Coördinatoromgeving</p><h1>Scheidsrechters beheren</h1>
+      <p className="muted">Beheer personen en rollen binnen je vereniging.</p>
 
       {!isCoordinator && (
         <div style={{ padding: 12, background: "#ffe5e5", border: "1px solid #ffb3b3", borderRadius: 8 }}>
@@ -307,16 +305,16 @@ function CoordinatorRefereesPage() {
         </div>
       )}
 
-      <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 8, marginBottom: 16 }}>
+      <section className="panel">
         <strong>Persoon toevoegen (bestaand account)</strong>
         <form onSubmit={addByEmail} style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
           <input
-            placeholder="email@adres.nl"
+            type="email" aria-label="E-mailadres persoon" required placeholder="email@adres.nl"
             value={addEmail}
             onChange={(e) => setAddEmail(e.target.value)}
             style={{ padding: 8, minWidth: 260 }}
           />
-          <select value={addRole} onChange={(e) => setAddRole(e.target.value)} style={{ padding: 8 }}>
+          <select aria-label="Rol voor nieuwe persoon" value={addRole} onChange={(e) => setAddRole(e.target.value)} style={{ padding: 8 }}>
             {roleOptions.map((r) => (
               <option key={r} value={r}>
                 {r === "referee" ? "Scheidsrechter" : r === "coordinator" ? "Coördinator" : "Hoofdcoördinator"}
@@ -325,10 +323,10 @@ function CoordinatorRefereesPage() {
           </select>
           <button type="submit">Toevoegen</button>
         </form>
-        {addMsg && <div style={{ marginTop: 8, opacity: 0.8 }}>{addMsg}</div>}
-      </div>
+        {addMsg && <div role="status" style={{ marginTop: 8, opacity: 0.8 }}>{addMsg}</div>}
+      </section>
 
-      <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 8 }}>
+      <section className="panel table-panel">
         <strong>Gekoppelde personen</strong>
 
         {loading ? (
@@ -356,6 +354,7 @@ function CoordinatorRefereesPage() {
                   </td>
                   <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>
                     <select
+                      aria-label={`Rol van ${r.profiles?.full_name || r.profiles?.email || "persoon"}`}
                       value={r.role}
                       onChange={(e) => changeRole(r.user_id, e.target.value)}
                       style={{ padding: 6 }}
@@ -370,7 +369,7 @@ function CoordinatorRefereesPage() {
                   </td>
                   <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>
                     <button
-                      onClick={() => removeMember(r.user_id)}
+                      className="danger-button" onClick={() => removeMember(r.user_id)}
                       disabled={!isCoordinator || r.role === "head_coordinator"}
                     >
                       Verwijderen
@@ -381,7 +380,7 @@ function CoordinatorRefereesPage() {
             </tbody>
           </table>
         )}
-      </div>
+      </section>
     </div>
   );
 }
@@ -396,32 +395,20 @@ function Layout({ onLogout, isAdmin }) {
   const isCoordinator = activeOrgRole === "coordinator" || activeOrgRole === "head_coordinator";
 
   return (
-    <div style={{ fontFamily: "system-ui" }}>
-      <header
-        style={{
-          padding: 12,
-          borderBottom: "1px solid #ddd",
-          display: "flex",
-          gap: 12,
-          alignItems: "center",
-        }}
-      >
-        <strong>IRMA</strong>
-
-        {isAdmin && <Link to="/admin">Admin</Link>}
-
-        <Link to={activeOrgId ? `/org/${activeOrgId}/dashboard` : "/select-org"}>Dashboard</Link>
-        <Link to={activeOrgId ? `/org/${activeOrgId}/matches` : "/select-org"}>Wedstrijden</Link>
-
-        {isCoordinator && activeOrgId && (
-          <Link to={`/org/${activeOrgId}/coordinator`}>Coördinator</Link>
-        )}
-
-        <span style={{ marginLeft: "auto" }} />
-        <button onClick={onLogout}>Uitloggen</button>
-      </header>
-
-      <main style={{ padding: 16 }}>
+    <div className="app-shell">
+      <aside className="sidebar">
+        <Link to={activeOrgId ? `/org/${activeOrgId}/dashboard` : "/select-org"} className="brand"><span className="brand-mark">I</span><span>IRMA<small>Integrated Referee<br />Management App</small></span></Link>
+        <p className="nav-label">WERKOMGEVING</p>
+        <nav aria-label="Hoofdnavigatie">
+          <NavLink to={activeOrgId ? `/org/${activeOrgId}/dashboard` : "/select-org"}><span aria-hidden="true">▦</span> Dashboard</NavLink>
+          <NavLink to={activeOrgId ? `/org/${activeOrgId}/matches` : "/select-org"}><span aria-hidden="true">◷</span> Wedstrijden</NavLink>
+          {isCoordinator && activeOrgId && <NavLink to={`/org/${activeOrgId}/coordinator`}><span aria-hidden="true">♧</span> Coördinator</NavLink>}
+          {isAdmin && <NavLink to="/admin"><span aria-hidden="true">◇</span> Platform Admin</NavLink>}
+        </nav>
+        <div className="sidebar-footer"><Link to="/select-org">Vereniging kiezen →</Link><button className="logout-button" onClick={onLogout}>Uitloggen</button></div>
+      </aside>
+      <div className="workspace"><header className="topbar"><span>Integrated Referee Management App</span><span className="badge">{roleLabel(activeOrgRole)}</span></header>
+      <main className="main-content">
         <Routes>
           <Route
             path="/admin"
@@ -455,7 +442,7 @@ function Layout({ onLogout, isAdmin }) {
 
           <Route path="*" element={<Navigate to="/select-org" replace />} />
         </Routes>
-      </main>
+      </main></div>
     </div>
   );
 }

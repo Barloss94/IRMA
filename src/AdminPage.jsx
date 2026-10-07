@@ -181,19 +181,19 @@ export default function AdminPage() {
   };
 
   return (
-    <div style={{ maxWidth: 1100, margin: "20px auto", fontFamily: "system-ui" }}>
-      <h2>Admin – Verenigingen</h2>
+    <div className="admin-page">
+      <p className="eyebrow">Platform Admin</p><h1>Verenigingen</h1><p className="muted">Beheer verenigingen en wijs een hoofdcoördinator toe.</p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div className="admin-grid">
         {/* LEFT */}
-        <div style={{ border: "1px solid #ddd", borderRadius: 10, padding: 12 }}>
+        <div className="panel">
           <h3>Verenigingen</h3>
 
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
             <input
               value={newOrgName}
               onChange={(e) => setNewOrgName(e.target.value)}
-              placeholder="Naam vereniging"
+              aria-label="Naam vereniging" placeholder="Naam vereniging"
               style={{ flex: 1 }}
             />
             <button onClick={createOrg} disabled={busyCreate}>
@@ -211,15 +211,8 @@ export default function AdminPage() {
                 <li key={o.id} style={{ marginBottom: 8 }}>
                   <button
                     onClick={() => setSelectedOrg(o)}
-                    style={{
-                      width: "100%",
-                      textAlign: "left",
-                      padding: 10,
-                      borderRadius: 8,
-                      border: selectedOrg?.id === o.id ? "2px solid #333" : "1px solid #ddd",
-                      background: "white",
-                      cursor: "pointer",
-                    }}
+                    className={selectedOrg?.id === o.id ? "org-option selected" : "org-option"}
+                    aria-pressed={selectedOrg?.id === o.id}
                   >
                     <div style={{ fontWeight: 700 }}>{o.name}</div>
                     <div style={{ fontSize: 12, opacity: 0.7 }}>{o.id}</div>
@@ -231,7 +224,7 @@ export default function AdminPage() {
         </div>
 
         {/* RIGHT */}
-        <div style={{ border: "1px solid #ddd", borderRadius: 10, padding: 12 }}>
+        <div className="panel">
           <h3>Beheer</h3>
 
           {!selectedOrg ? (
@@ -247,25 +240,25 @@ export default function AdminPage() {
                 <h4>Hoofdcoördinator toewijzen</h4>
 
                 <p style={{ opacity: 0.85 }}>
-                  <b>A1</b>: account bestaat al → koppelen<br />
-                  <b>A2</b>: account bestaat nog niet → uitnodiging sturen (Supabase Auth)
+                  Account bestaat al → koppelen<br />
+                  Nieuw account → uitnodiging sturen
                 </p>
 
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="E-mailadres hoofdcoördinator"
+                  type="email" aria-label="E-mailadres hoofdcoördinator" placeholder="E-mailadres hoofdcoördinator"
                   style={{ width: "100%", marginBottom: 10 }}
                   disabled={busySet}
                 />
 
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   <button onClick={() => setHeadCoordinator("link_only")} disabled={busySet}>
-                    {busySet ? "Bezig…" : "A1: Koppel bestaand account"}
+                    {busySet ? "Bezig…" : "Koppel bestaand account"}
                   </button>
 
                   <button onClick={() => setHeadCoordinator("invite")} disabled={busySet}>
-                    {busySet ? "Bezig…" : "A2: Stuur uitnodiging"}
+                    {busySet ? "Bezig…" : "Stuur uitnodiging"}
                   </button>
                 </div>
               </div>
