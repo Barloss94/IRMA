@@ -1,9 +1,13 @@
 // src/App.jsx
 import { useEffect, useState } from "react";
-import { Routes, Route, Navigate, Link, NavLink, useNavigate, useParams, useMatch } from "react-router-dom";
+import { Routes, Route, Navigate, Link, NavLink, useNavigate, useParams, useMatch, useLocation } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 import AdminPage from "./AdminPage.jsx";
 import MatchesPage from "./pages/MatchesPage.jsx";
+import DashboardPage from "./pages/DashboardPage.jsx";
+import ProfilePage from "./pages/ProfilePage.jsx";
+import { ForgotPasswordPage, ResetPasswordPage } from "./pages/AccountRecovery.jsx";
+import { recoveryIntent, setRecoveryIntent } from "./authFlow";
 import { OrgContext, useOrg, useOrgAccess } from "./hooks/useOrgAccess";
 
 const roleLabel = (role) => ({ referee: "Scheidsrechter", coordinator: "Coördinator", head_coordinator: "Hoofdcoördinator" }[role] || role);
@@ -59,7 +63,7 @@ function LoginPage() {
         </div>
         {err && <div style={{ color: "crimson", marginBottom: 10 }}>{err}</div>}
         <button type="submit">Inloggen</button>
-      </form>
+      </form><Link className="auth-link" to="/forgot-password">Wachtwoord vergeten?</Link>
     </div></div>
   );
 }
@@ -118,7 +122,7 @@ function SelectOrgPage({ session, isAdmin }) {
 
   return (
     <div className="selection-page"><div className="brand-mark">I</div><p className="eyebrow">IRMA · Jouw omgeving</p>
-      <h1>Kies je vereniging</h1><p className="muted">Open de vereniging waarvoor je aan de slag wilt.</p>{isAdmin && <Link className="text-link" to="/admin">Naar platformbeheer →</Link>}
+      <Link className="text-link selection-profile" to="/profile">Mijn profiel →</Link><h1>Kies je vereniging</h1><p className="muted">Open de vereniging waarvoor je aan de slag wilt.</p>{isAdmin && <Link className="text-link" to="/admin">Naar platformbeheer →</Link>}
       {loading ? (
         <p>Bezig met laden…</p>
       ) : orgs.length === 0 ? (
@@ -144,24 +148,6 @@ function SelectOrgPage({ session, isAdmin }) {
 /* ---------------------------
    Org pages (skeleton + referee management)
 ---------------------------- */
-
-function DashboardPage() {
-  const { orgId } = useParams();
-  const { role } = useOrg();
-  const isCoordinator = role === "coordinator" || role === "head_coordinator";
-  return (
-    <div>
-      <p className="eyebrow">Jouw vereniging</p><h1>Dashboard</h1>
-      <p className="muted">Welkom in jouw IRMA-omgeving.</p>
-      <section className="welcome-panel"><div><span className="badge">{roleLabel(role)}</span><h2>Alles voor je vereniging op één plek</h2><p>Ga naar wedstrijden of open het beheer van je vereniging.</p></div><span className="welcome-monogram" aria-hidden="true">I</span></section>
-      <div className="dashboard-grid">
-        <Link className="module-card" to={`/org/${orgId}/my-matches`}><span className="module-icon" aria-hidden="true">◷</span><h2>Mijn wedstrijden</h2><p>Bekijk wedstrijden waarvoor jij bent aangesteld.</p><span className="text-link">Bekijk mijn wedstrijden →</span></Link>
-        <Link className="module-card" to={`/org/${orgId}/matches`}><span className="module-icon" aria-hidden="true">▦</span><h2>Wedstrijden</h2><p>Open de wedstrijdmodule van je vereniging.</p><span className="text-link">Bekijk wedstrijden →</span></Link>
-        {isCoordinator && <Link className="module-card" to={`/org/${orgId}/coordinator/referees`}><span className="module-icon" aria-hidden="true">♧</span><h2>Scheidsrechters</h2><p>Beheer gekoppelde personen en hun rollen.</p><span className="text-link">Open personenbeheer →</span></Link>}
-      </div>
-    </div>
-  );
-}
 
 function CoordinatorHomePage() {
   const { orgId } = useParams();
@@ -408,11 +394,12 @@ function Layout({ onLogout, isAdmin, session }) {
           <NavLink to={activeOrgId ? `/org/${activeOrgId}/matches` : "/select-org"}><span aria-hidden="true">◷</span> Wedstrijden</NavLink>
           {activeOrgId && <NavLink to={`/org/${activeOrgId}/my-matches`}><span aria-hidden="true">◷</span> Mijn wedstrijden</NavLink>}
           {isCoordinator && activeOrgId && <NavLink to={`/org/${activeOrgId}/coordinator`}><span aria-hidden="true">♧</span> Coördinator</NavLink>}
+          <NavLink to={activeOrgId ? `/org/${activeOrgId}/profile` : "/profile"}><span aria-hidden="true">○</span> Profiel</NavLink>
           {isAdmin && <NavLink to="/admin"><span aria-hidden="true">◇</span> Platform Admin</NavLink>}
         </nav>
         <div className="sidebar-footer"><Link to="/select-org">Vereniging kiezen →</Link><button className="logout-button" onClick={onLogout}>Uitloggen</button></div>
       </aside>
-      <div className="workspace"><header className="topbar"><span>{access.name || "Integrated Referee Management App"}</span><span className="badge">{activeOrgId ? roleLabel(activeOrgRole) : "Platform Admin"}</span></header>
+      <div className="workspace"><header className="topbar"><span>{access.name || "Integrated Referee Management App"}</span><span className="badge">{activeOrgId ? roleLabel(activeOrgRole) : isAdmin ? "Platform Admin" : "Mijn account"}</span></header>
       <main className="main-content">
         <Routes>
           <Route
@@ -424,6 +411,8 @@ function Layout({ onLogout, isAdmin, session }) {
             }
           />
 
+          <Route path="/profile" element={<ProfilePage session={session} />} />
+          <Route path="/org/:orgId/profile" element={<ProfilePage session={session} />} />
           <Route path="/org/:orgId/dashboard" element={<DashboardPage />} />
           <Route path="/org/:orgId/matches" element={<MatchesPage />} />
           <Route path="/org/:orgId/my-matches" element={<MatchesPage personal />} />
@@ -459,81 +448,57 @@ function Layout({ onLogout, isAdmin, session }) {
 
 export default function App() {
   const [session, setSession] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [adminChecked, setAdminChecked] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [recovery, setRecovery] = useState(recoveryIntent);
+  const [adminState, setAdminState] = useState({ userId: null, isAdmin: false, error: "" });
+  const location = useLocation();
+  const userId = session?.user.id;
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
-      if (!newSession) {
-        localStorage.removeItem("active_org_id");
-        localStorage.removeItem("active_org_role");
-        setIsAdmin(false);
-        setAdminChecked(false);
+    let cancelled = false;
+    // The callback is synchronous: Supabase calls must not be awaited inside it.
+    const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (cancelled) return;
+      setSession(newSession); setAuthReady(true);
+      if (event === "PASSWORD_RECOVERY") { setRecoveryIntent(true); setRecovery(true); }
+      if (!newSession && event === "SIGNED_OUT") {
+        localStorage.removeItem("active_org_id"); localStorage.removeItem("active_org_role");
+        setRecoveryIntent(false); setRecovery(false);
       }
     });
-
-    return () => sub.subscription.unsubscribe();
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!cancelled) { setSession(data.session); setAuthReady(true); setAuthError(error?.message || ""); }
+    }).catch((error) => {
+      if (!cancelled) { setAuthReady(true); setAuthError(error.message || "Sessie laden mislukt."); }
+    });
+    return () => { cancelled = true; sub.subscription.unsubscribe(); };
   }, []);
 
   useEffect(() => {
-    (async () => {
-      if (!session) return;
+    if (!userId) return;
+    let cancelled = false;
+    supabase.from("platform_admins").select("user_id").eq("user_id", userId).maybeSingle()
+      .then(({ data, error }) => {
+        if (!cancelled) setAdminState({ userId, isAdmin: !!data?.user_id, error: error?.message || "" });
+      });
+    return () => { cancelled = true; };
+  }, [userId]);
 
-      setAdminChecked(false);
-      const { data, error } = await supabase
-        .from("platform_admins")
-        .select("user_id")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
+  const logout = async () => { await supabase.auth.signOut(); };
+  const completeRecovery = () => { setRecoveryIntent(false); setRecovery(false); };
+  const ready = !!session && adminState.userId === userId;
+  const isAdmin = ready && adminState.isAdmin;
 
-      if (error) console.error(error);
+  if (!authReady) return <div className="selection-page" role="status">Sessie laden…</div>;
+  if (authError && !recovery && location.pathname !== "/reset-password" && location.pathname !== "/forgot-password") return <div className="selection-page"><p role="alert">{authError}</p><button onClick={() => window.location.reload()}>Opnieuw proberen</button></div>;
+  if (recovery && location.pathname !== "/reset-password" && location.pathname !== "/forgot-password") return <Navigate to="/reset-password" replace />;
 
-      setIsAdmin(!!data?.user_id);
-      setAdminChecked(true);
-    })();
-  }, [session]);
-
-  const logout = async () => {
-    await supabase.auth.signOut();
-  };
-
-  const ready = !!session && adminChecked;
-
-  return (
-    <Routes>
-      <Route
-        path="/login"
-        element={session ? <Navigate to="/select-org" replace /> : <LoginPage />}
-      />
-
-      <Route
-        path="/select-org"
-        element={
-          <RequireAuth session={session}>
-            {ready ? (
-              <SelectOrgPage session={session} isAdmin={isAdmin} />
-            ) : (
-              <div style={{ padding: 16 }}>Bezig met laden…</div>
-            )}
-          </RequireAuth>
-        }
-      />
-
-      <Route
-        path="/*"
-        element={
-          <RequireAuth session={session}>
-            {ready ? (
-              <Layout onLogout={logout} isAdmin={isAdmin} session={session} />
-            ) : (
-              <div style={{ padding: 16 }}>Bezig met laden…</div>
-            )}
-          </RequireAuth>
-        }
-      />
-    </Routes>
-  );
+  return <Routes>
+    <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+    <Route path="/reset-password" element={<ResetPasswordPage session={session} onComplete={completeRecovery} />} />
+    <Route path="/login" element={session ? <Navigate to="/select-org" replace /> : <LoginPage />} />
+    <Route path="/select-org" element={<RequireAuth session={session}>{ready ? <SelectOrgPage session={session} isAdmin={isAdmin} /> : <div className="selection-page" role="status">Bezig met laden…</div>}</RequireAuth>} />
+    <Route path="/*" element={<RequireAuth session={session}>{ready ? adminState.error ? <div className="selection-page"><p role="alert">{adminState.error}</p><button onClick={() => window.location.reload()}>Opnieuw proberen</button></div> : <Layout onLogout={logout} isAdmin={isAdmin} session={session} /> : <div className="selection-page" role="status">Bezig met laden…</div>}</RequireAuth>} />
+  </Routes>;
 }

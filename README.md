@@ -42,3 +42,31 @@ De frontend haalt de actieve verenigingsrol uit Supabase.
 
 Een push naar `main` start `.github/workflows/deploy.yml` voor GitHub Pages.
 De workflow gebruikt repository secrets voor de Supabase-URL en anon-key.
+
+## Profiel, dashboard en accountherstel
+
+- `Profiel`: eigen naam opslaan, inlogadres bekijken en wachtwoord wijzigen
+  met controle van het huidige wachtwoord.
+- `Dashboard`: exacte aantallen komende wedstrijden en eigen aanstellingen;
+  coördinatoren zien ook wedstrijden zonder aanstelling en gekoppelde personen.
+  De eerstvolgende vijf wedstrijden worden weergegeven met datum en locatie.
+- `Wachtwoord vergeten?` staat bij het inloggen. De herstelmail opent
+  `/reset-password`, waar een nieuw wachtwoord tweemaal wordt ingevoerd.
+- Recovery-events krijgen voorrang boven de normale navigatie. Refreshen van
+  de herstelpagina behoudt de herstelmodus; ongeldige of verlopen links tonen
+  een mogelijkheid om een nieuwe herstelmail aan te vragen.
+- `supabase/tests/profile_access.sql` controleert eigen profielwijzigingen en
+  blokkeert het wijzigen van een andere gebruiker; de testgegevens worden teruggedraaid.
+
+### Supabase URL-instellingen voor herstelmails
+
+Controleer bij Authentication → URL Configuration:
+
+- Site URL: `https://barloss94.github.io/IRMA/`
+- Redirect URL: `https://barloss94.github.io/IRMA/reset-password`
+
+De redirect moet op de allowlist staan. De codewijziging configureert deze
+projectinstelling niet. Voor lokaal testen kan de exacte lokale resetroute
+ook toegevoegd worden. Herstelmail-aanvragen gebruiken de actuele app-origin
+plus de Vite-basismap. De afhandeling via `public/404.html` bewaart de route
+én het auth-fragment bij een directe terugkeer naar GitHub Pages.

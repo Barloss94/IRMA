@@ -1,4 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
+import { recoveryIntent, setRecoveryIntent } from "./authFlow";
+
+// Preserve recovery intent before Supabase consumes and clears the URL fragment.
+if (recoveryIntent()) setRecoveryIntent(true);
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey =
