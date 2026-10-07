@@ -1,8 +1,10 @@
 // src/App.jsx
 import { useEffect, useState } from "react";
-import { Routes, Route, Navigate, Link, NavLink, useNavigate, useParams } from "react-router-dom";
+import { Routes, Route, Navigate, Link, NavLink, useNavigate, useParams, useMatch } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 import AdminPage from "./AdminPage.jsx";
+import MatchesPage from "./pages/MatchesPage.jsx";
+import { OrgContext, useOrg, useOrgAccess } from "./hooks/useOrgAccess";
 
 const roleLabel = (role) => ({ referee: "Scheidsrechter", coordinator: "Coördinator", head_coordinator: "Hoofdcoördinator" }[role] || role);
 
@@ -145,7 +147,7 @@ function SelectOrgPage({ session, isAdmin }) {
 
 function DashboardPage() {
   const { orgId } = useParams();
-  const role = localStorage.getItem("active_org_role") || "referee";
+  const { role } = useOrg();
   const isCoordinator = role === "coordinator" || role === "head_coordinator";
   return (
     <div>
@@ -153,15 +155,12 @@ function DashboardPage() {
       <p className="muted">Welkom in jouw IRMA-omgeving.</p>
       <section className="welcome-panel"><div><span className="badge">{roleLabel(role)}</span><h2>Alles voor je vereniging op één plek</h2><p>Ga naar wedstrijden of open het beheer van je vereniging.</p></div><span className="welcome-monogram" aria-hidden="true">I</span></section>
       <div className="dashboard-grid">
+        <Link className="module-card" to={`/org/${orgId}/my-matches`}><span className="module-icon" aria-hidden="true">◷</span><h2>Mijn wedstrijden</h2><p>Bekijk wedstrijden waarvoor jij bent aangesteld.</p><span className="text-link">Bekijk mijn wedstrijden →</span></Link>
         <Link className="module-card" to={`/org/${orgId}/matches`}><span className="module-icon" aria-hidden="true">▦</span><h2>Wedstrijden</h2><p>Open de wedstrijdmodule van je vereniging.</p><span className="text-link">Bekijk wedstrijden →</span></Link>
         {isCoordinator && <Link className="module-card" to={`/org/${orgId}/coordinator/referees`}><span className="module-icon" aria-hidden="true">♧</span><h2>Scheidsrechters</h2><p>Beheer gekoppelde personen en hun rollen.</p><span className="text-link">Open personenbeheer →</span></Link>}
       </div>
     </div>
   );
-}
-
-function MatchesPage() {
-  return <div><p className="eyebrow">Jouw vereniging</p><h1>Wedstrijden</h1><p className="muted">De wedstrijdmodule van je vereniging.</p><section className="empty-state"><span className="module-icon" aria-hidden="true">▦</span><h2>Wedstrijdmodule in ontwikkeling</h2><p>In deze versie is er nog geen wedstrijdenlijst beschikbaar.</p></section></div>;
 }
 
 function CoordinatorHomePage() {
@@ -171,7 +170,7 @@ function CoordinatorHomePage() {
 
 function CoordinatorRefereesPage() {
   const { orgId } = useParams();
-  const activeRole = localStorage.getItem("active_org_role") || "referee";
+  const { role: activeRole } = useOrg();
 
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
@@ -389,25 +388,31 @@ function CoordinatorRefereesPage() {
    Layout
 ---------------------------- */
 
-function Layout({ onLogout, isAdmin }) {
-  const activeOrgId = localStorage.getItem("active_org_id");
-  const activeOrgRole = localStorage.getItem("active_org_role") || "referee";
+function Layout({ onLogout, isAdmin, session }) {
+  const orgRoute = useMatch("/org/:orgId/*");
+  const activeOrgId = orgRoute?.params.orgId;
+  const access = useOrgAccess(activeOrgId, session.user.id);
+  const activeOrgRole = access.role;
+  if (access.loading) return <div className="selection-page" role="status">Vereniging laden…</div>;
+  if (access.error) return <div className="selection-page"><p role="alert">{access.error}</p><Link to="/select-org">Terug naar vereniging kiezen</Link></div>;
+  if (activeOrgId && !access.role) return <Navigate to="/select-org" replace />;
   const isCoordinator = activeOrgRole === "coordinator" || activeOrgRole === "head_coordinator";
 
   return (
-    <div className="app-shell">
+    <OrgContext.Provider value={{ ...access, userId: session.user.id }}><div className="app-shell">
       <aside className="sidebar">
         <Link to={activeOrgId ? `/org/${activeOrgId}/dashboard` : "/select-org"} className="brand"><span className="brand-mark">I</span><span>IRMA<small>Integrated Referee<br />Management App</small></span></Link>
         <p className="nav-label">WERKOMGEVING</p>
         <nav aria-label="Hoofdnavigatie">
           <NavLink to={activeOrgId ? `/org/${activeOrgId}/dashboard` : "/select-org"}><span aria-hidden="true">▦</span> Dashboard</NavLink>
           <NavLink to={activeOrgId ? `/org/${activeOrgId}/matches` : "/select-org"}><span aria-hidden="true">◷</span> Wedstrijden</NavLink>
+          {activeOrgId && <NavLink to={`/org/${activeOrgId}/my-matches`}><span aria-hidden="true">◷</span> Mijn wedstrijden</NavLink>}
           {isCoordinator && activeOrgId && <NavLink to={`/org/${activeOrgId}/coordinator`}><span aria-hidden="true">♧</span> Coördinator</NavLink>}
           {isAdmin && <NavLink to="/admin"><span aria-hidden="true">◇</span> Platform Admin</NavLink>}
         </nav>
         <div className="sidebar-footer"><Link to="/select-org">Vereniging kiezen →</Link><button className="logout-button" onClick={onLogout}>Uitloggen</button></div>
       </aside>
-      <div className="workspace"><header className="topbar"><span>Integrated Referee Management App</span><span className="badge">{roleLabel(activeOrgRole)}</span></header>
+      <div className="workspace"><header className="topbar"><span>{access.name || "Integrated Referee Management App"}</span><span className="badge">{activeOrgId ? roleLabel(activeOrgRole) : "Platform Admin"}</span></header>
       <main className="main-content">
         <Routes>
           <Route
@@ -421,6 +426,7 @@ function Layout({ onLogout, isAdmin }) {
 
           <Route path="/org/:orgId/dashboard" element={<DashboardPage />} />
           <Route path="/org/:orgId/matches" element={<MatchesPage />} />
+          <Route path="/org/:orgId/my-matches" element={<MatchesPage personal />} />
 
           <Route
             path="/org/:orgId/coordinator"
@@ -443,7 +449,7 @@ function Layout({ onLogout, isAdmin }) {
           <Route path="*" element={<Navigate to="/select-org" replace />} />
         </Routes>
       </main></div>
-    </div>
+    </div></OrgContext.Provider>
   );
 }
 
@@ -521,7 +527,7 @@ export default function App() {
         element={
           <RequireAuth session={session}>
             {ready ? (
-              <Layout onLogout={logout} isAdmin={isAdmin} />
+              <Layout onLogout={logout} isAdmin={isAdmin} session={session} />
             ) : (
               <div style={{ padding: 16 }}>Bezig met laden…</div>
             )}

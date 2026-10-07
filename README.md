@@ -1,16 +1,44 @@
-# React + Vite
+# IRMA — Integrated Referee Management App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React/Vite frontend met Supabase Auth en gegevens per vereniging.
 
-Currently, two official plugins are available:
+## Functies
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Verenigingselectie, platformbeheer en personenbeheer.
+- Wedstrijden toevoegen, wijzigen en verwijderen door coördinatoren.
+- Eén of meer gekoppelde personen aanstellen als scheidsrechter; aanstellingen verwijderen.
+- Persoonlijk overzicht met alleen eigen aanstellingen.
+- Zoeken op team/locatie en filteren op komende, afgelopen of alle wedstrijden.
+- Wedstrijdtijden worden ingevoerd en weergegeven in Europe/Amsterdam.
 
-## React Compiler
+## Lokaal starten
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Installeer dependencies met `npm ci`. Zet `VITE_SUPABASE_URL` en
+`VITE_SUPABASE_PUBLISHABLE_KEY` (of `VITE_SUPABASE_ANON_KEY`) in `.env.local`.
+Gebruik uitsluitend een publieke frontend-key. Start met `npm run dev`.
 
-## Expanding the ESLint configuration
+## Controle
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- `npm run lint`
+- `npm test`: interfaceflow, opslagfouten, persoonlijk overzicht en Nederlandse tijdconversie.
+- `npm run build`
+- `supabase/tests/matches_access.sql`: database- en rechtentests in een transactie
+  die alle testgegevens terugdraait. Uitvoeren met beheerdersrechten in een testdatabase.
+
+## Database
+
+De wedstrijdmodule gebruikt de bestaande tabellen `matches`, `assignments`,
+`memberships` en `profiles`. De migration in `supabase/migrations` voegt
+verwijderpolicies, indexen en controles op verenigingconsistentie toe.
+Deze migration is toegepast op het huidige IRMA-project. Niet opnieuw los uitvoeren
+als hij al in de migrationgeschiedenis staat.
+
+De database staat wijzigingen alleen toe aan coördinatoren van de betreffende
+vereniging. Een aanstelling vereist lidmaatschap van dezelfde vereniging als de
+wedstrijd. Verwijderen van een wedstrijd verwijdert de aanstellingen automatisch.
+De frontend haalt de actieve verenigingsrol uit Supabase.
+
+## Publicatie
+
+Een push naar `main` start `.github/workflows/deploy.yml` voor GitHub Pages.
+De workflow gebruikt repository secrets voor de Supabase-URL en anon-key.
