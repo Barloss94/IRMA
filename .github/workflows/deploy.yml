@@ -1,3 +1,4 @@
+# Pages source: GitHub Actions
 name: Deploy IRMA to GitHub Pages
 
 on:
