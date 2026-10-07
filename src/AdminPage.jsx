@@ -1,5 +1,5 @@
 // src/AdminPage.jsx
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 export default function AdminPage() {
