@@ -26,7 +26,26 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    loadOrgs();
+    let cancelled = false;
+
+    async function loadInitialOrgs() {
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("id,name,primary_coordinator_user_id,created_at")
+        .order("created_at", { ascending: false });
+
+      if (cancelled) return;
+
+      if (error) console.error("Load orgs error:", error);
+      setOrgs(data ?? []);
+      setLoading(false);
+    }
+
+    loadInitialOrgs();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const createOrg = async () => {
