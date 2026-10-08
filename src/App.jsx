@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Routes, Route, Navigate, Link, NavLink, useNavigate, useParams, useMatch, useLocation } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 import AdminPage from "./AdminPage.jsx";
+import LogoutButton from "./components/LogoutButton.jsx";
 import MatchesPage from "./pages/MatchesPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
@@ -68,7 +69,7 @@ function LoginPage() {
   );
 }
 
-function SelectOrgPage({ session, isAdmin }) {
+function SelectOrgPage({ session, isAdmin, onLogout }) {
   const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
   const nav = useNavigate();
@@ -121,7 +122,7 @@ function SelectOrgPage({ session, isAdmin }) {
   };
 
   return (
-    <div className="selection-page"><div className="brand-mark">I</div><p className="eyebrow">IRMA · Jouw omgeving</p>
+    <div className="selection-page"><div className="selection-header"><div className="brand-mark">I</div><LogoutButton onLogout={onLogout} /></div><p className="eyebrow">IRMA · Jouw omgeving</p>
       <Link className="text-link selection-profile" to="/profile">Mijn profiel →</Link><h1>Kies je vereniging</h1><p className="muted">Open de vereniging waarvoor je aan de slag wilt.</p>{isAdmin && <Link className="text-link" to="/admin">Naar platformbeheer →</Link>}
       {loading ? (
         <p>Bezig met laden…</p>
@@ -397,9 +398,9 @@ function Layout({ onLogout, isAdmin, session }) {
           <NavLink to={activeOrgId ? `/org/${activeOrgId}/profile` : "/profile"}><span aria-hidden="true">○</span> Profiel</NavLink>
           {isAdmin && <NavLink to="/admin"><span aria-hidden="true">◇</span> Platform Admin</NavLink>}
         </nav>
-        <div className="sidebar-footer"><Link to="/select-org">Vereniging kiezen →</Link><button className="logout-button" onClick={onLogout}>Uitloggen</button></div>
+        <div className="sidebar-footer"><Link to="/select-org">Vereniging kiezen →</Link></div>
       </aside>
-      <div className="workspace"><header className="topbar"><span>{access.name || "Integrated Referee Management App"}</span><span className="badge">{activeOrgId ? roleLabel(activeOrgRole) : isAdmin ? "Platform Admin" : "Mijn account"}</span></header>
+      <div className="workspace"><header className="topbar"><span>{access.name || "Integrated Referee Management App"}</span><div className="topbar-actions"><span className="badge">{activeOrgId ? roleLabel(activeOrgRole) : isAdmin ? "Platform Admin" : "Mijn account"}</span><LogoutButton onLogout={onLogout} /></div></header>
       <main className="main-content">
         <Routes>
           <Route
@@ -485,7 +486,10 @@ export default function App() {
     return () => { cancelled = true; };
   }, [userId]);
 
-  const logout = async () => { await supabase.auth.signOut(); };
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+  };
   const completeRecovery = () => { setRecoveryIntent(false); setRecovery(false); };
   const ready = !!session && adminState.userId === userId;
   const isAdmin = ready && adminState.isAdmin;
@@ -498,7 +502,7 @@ export default function App() {
     <Route path="/forgot-password" element={<ForgotPasswordPage />} />
     <Route path="/reset-password" element={<ResetPasswordPage session={session} onComplete={completeRecovery} />} />
     <Route path="/login" element={session ? <Navigate to="/select-org" replace /> : <LoginPage />} />
-    <Route path="/select-org" element={<RequireAuth session={session}>{ready ? <SelectOrgPage session={session} isAdmin={isAdmin} /> : <div className="selection-page" role="status">Bezig met laden…</div>}</RequireAuth>} />
+    <Route path="/select-org" element={<RequireAuth session={session}>{ready ? <SelectOrgPage session={session} isAdmin={isAdmin} onLogout={logout} /> : <div className="selection-page" role="status">Bezig met laden…</div>}</RequireAuth>} />
     <Route path="/*" element={<RequireAuth session={session}>{ready ? adminState.error ? <div className="selection-page"><p role="alert">{adminState.error}</p><button onClick={() => window.location.reload()}>Opnieuw proberen</button></div> : <Layout onLogout={logout} isAdmin={isAdmin} session={session} /> : <div className="selection-page" role="status">Bezig met laden…</div>}</RequireAuth>} />
   </Routes>;
 }
