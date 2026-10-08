@@ -1,4 +1,4 @@
-# IRMA — Integrated Referee Management App
+# IRMA — Integrated Referee Management Assistent
 
 React/Vite frontend met Supabase Auth en gegevens per vereniging.
 
@@ -70,3 +70,13 @@ projectinstelling niet. Voor lokaal testen kan de exacte lokale resetroute
 ook toegevoegd worden. Herstelmail-aanvragen gebruiken de actuele app-origin
 plus de Vite-basismap. De afhandeling via `public/404.html` bewaart de route
 én het auth-fragment bij een directe terugkeer naar GitHub Pages.
+
+## Clubkleuren
+
+De actieve verenigingsomgeving gebruikt de kleuren uit `src/clubkleuren.txt`.
+Navigatie, knoppen, badges en accenten wisselen mee met de vereniging.
+Voor onbekende verenigingen, het inloggen en platformbeheer geldt het standaard
+IRMA-thema. Clubnamen worden zonder onderscheid in hoofdletters en met
+normalisatie van spaties vergeleken. Statuskleuren voor fouten en waarschuwingen
+blijven herkenbaar. Voor de zes bekende clubs worden contrastverhoudingen voor
+knoppen, navigatie en links gecontroleerd door `tests/club-theme.test.js`.

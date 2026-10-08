@@ -4,6 +4,7 @@ import { Routes, Route, Navigate, Link, NavLink, useNavigate, useParams, useMatc
 import { supabase } from "./supabaseClient";
 import AdminPage from "./AdminPage.jsx";
 import LogoutButton from "./components/LogoutButton.jsx";
+import { clubTheme } from "./clubTheme";
 import MatchesPage from "./pages/MatchesPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
@@ -52,7 +53,7 @@ function LoginPage() {
 
   return (
     <div className="auth-page"><div className="auth-card">
-      <div className="brand-mark">I</div><p className="eyebrow">Integrated Referee Management App</p><h1>Welkom bij IRMA</h1><p className="muted">Log in om naar jouw vereniging te gaan.</p>
+      <div className="brand-mark">I</div><p className="eyebrow">Integrated Referee Management Assistent</p><h1>Welkom bij IRMA</h1><p className="muted">Log in om naar jouw vereniging te gaan.</p>
       <form onSubmit={handleLogin}>
         <div style={{ marginBottom: 10 }}>
           <label htmlFor="login-email">E-mailadres</label>
@@ -386,9 +387,9 @@ function Layout({ onLogout, isAdmin, session }) {
   const isCoordinator = activeOrgRole === "coordinator" || activeOrgRole === "head_coordinator";
 
   return (
-    <OrgContext.Provider value={{ ...access, userId: session.user.id }}><div className="app-shell">
+    <OrgContext.Provider value={{ ...access, userId: session.user.id }}><div className="app-shell" style={clubTheme(access.name)}>
       <aside className="sidebar">
-        <Link to={activeOrgId ? `/org/${activeOrgId}/dashboard` : "/select-org"} className="brand"><span className="brand-mark">I</span><span>IRMA<small>Integrated Referee<br />Management App</small></span></Link>
+        <Link to={activeOrgId ? `/org/${activeOrgId}/dashboard` : "/select-org"} className="brand"><span className="brand-mark">I</span><span>IRMA<small>Integrated Referee<br />Management Assistent</small></span></Link>
         <p className="nav-label">WERKOMGEVING</p>
         <nav aria-label="Hoofdnavigatie">
           <NavLink to={activeOrgId ? `/org/${activeOrgId}/dashboard` : "/select-org"}><span aria-hidden="true">▦</span> Dashboard</NavLink>
@@ -400,7 +401,7 @@ function Layout({ onLogout, isAdmin, session }) {
         </nav>
         <div className="sidebar-footer"><Link to="/select-org">Vereniging kiezen →</Link></div>
       </aside>
-      <div className="workspace"><header className="topbar"><span>{access.name || "Integrated Referee Management App"}</span><div className="topbar-actions"><span className="badge">{activeOrgId ? roleLabel(activeOrgRole) : isAdmin ? "Platform Admin" : "Mijn account"}</span><LogoutButton onLogout={onLogout} /></div></header>
+      <div className="workspace"><header className="topbar"><span>{access.name || "Integrated Referee Management Assistent"}</span><div className="topbar-actions"><span className="badge">{activeOrgId ? roleLabel(activeOrgRole) : isAdmin ? "Platform Admin" : "Mijn account"}</span><LogoutButton onLogout={onLogout} /></div></header>
       <main className="main-content">
         <Routes>
           <Route
